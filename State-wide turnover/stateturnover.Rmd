@@ -1,0 +1,143 @@
+---
+title: "Code"
+output: html_document
+date: "2024-09-06"
+---
+
+```{r setup, include=FALSE}
+library(httr)
+library(jsonlite)
+library(openxlsx)
+library(devtools)
+library(blsAPI)
+library(dplyr)
+library(tidyr)
+library(readr)
+
+```
+
+# Note: BLS only allows retrieval up to 20 years back, idk 
+
+```{r}
+api_key <- "8d125bb3852b49dd8ac2c0e2cc893cda"
+
+# List of state names and corresponding series IDs
+state_series <- list(
+  "Alabama" = "JTU000000010000000TSR",
+  "Alaska" = "JTU000000020000000TSR",
+  "Arizona" = "JTU000000040000000TSR",
+  "Arkansas" = "JTU000000050000000TSR",
+  "California" = "JTU000000060000000TSR",
+  "Colorado" = "JTU000000080000000TSR",
+  "Connecticut" = "JTU000000090000000TSR",
+  "Delaware" = "JTU000000100000000TSR",
+  "Florida" = "JTU000000110000000TSR",
+  "Georgia" = "JTU000000120000000TSR",
+  "Hawaii" = "JTU000000150000000TSR",
+  "Idaho" = "JTU000000160000000TSR",
+  "Illinois" = "JTU000000170000000TSR",
+  "Indiana" = "JTU000000180000000TSR",
+  "Iowa" = "JTU000000190000000TSR",
+  "Kansas" = "JTU000000200000000TSR",
+  "Kentucky" = "JTU000000210000000TSR",
+  "Louisiana" = "JTU000000220000000TSR",
+  "Maine" = "JTU000000230000000TSR",
+  "Maryland" = "JTU000000240000000TSR",
+  "Massachusetts" = "JTU000000250000000TSR",
+  "Michigan" = "JTU000000260000000TSR",
+  "Minnesota" = "JTU000000270000000TSR",
+  "Mississippi" = "JTU000000280000000TSR",
+  "Missouri" = "JTU000000290000000TSR",
+  "Montana" = "JTU000000300000000TSR",
+  "Nebraska" = "JTU000000310000000TSR",
+  "Nevada" = "JTU000000320000000TSR",
+  "New Hampshire" = "JTU000000330000000TSR",
+  "New Jersey" = "JTU000000340000000TSR",
+  "New Mexico" = "JTU000000350000000TSR",
+  "New York" = "JTU000000360000000TSR",
+  "North Carolina" = "JTU000000370000000TSR",
+  "North Dakota" = "JTU000000380000000TSR",
+  "Ohio" = "JTU000000390000000TSR",
+  "Oklahoma" = "JTU000000400000000TSR",
+  "Oregon" = "JTU000000410000000TSR",
+  "Pennsylvania" = "JTU000000420000000TSR",
+  "Rhode Island" = "JTU000000440000000TSR",
+  "South Carolina" = "JTU000000450000000TSR",
+  "South Dakota" = "JTU000000460000000TSR",
+  "Tennessee" = "JTU000000470000000TSR",
+  "Texas" = "JTU000000480000000TSR",
+  "Utah" = "JTU000000490000000TSR",
+  "Vermont" = "JTU000000500000000TSR",
+  "Virginia" = "JTU000000510000000TSR",
+  "Washington" = "JTU000000530000000TSR",
+  "West Virginia" = "JTU000000540000000TSR",
+  "Wisconsin" = "JTU000000550000000TSR",
+  "Wyoming" = "JTU000000560000000TSR",
+  "US Average" = "JTU000000000000000TSR"
+)
+
+# Function to fetch data for a given state
+fetch_bls_data <- function(state, series_id) {
+  payload1 <- list(
+    "seriesid" = list(series_id),
+    "startyear" = "2001",
+    "endyear" = "2011",
+    "registrationkey" = api_key
+  )
+  
+  payload2 <- list(
+    "seriesid" = list(series_id),
+    "startyear" = "2012",
+    "endyear" = "2023",
+    "registrationkey" = api_key
+  )
+
+  # Fetch data in two chunks
+  response1 <- blsAPI(payload1, return_data_frame = TRUE)
+  response2 <- blsAPI(payload2, return_data_frame = TRUE)
+
+  # Combine results
+  response <- rbind(response1, response2)
+  
+  # Add state name as a column for tracking
+  response$state <- state
+  
+  return(response)
+}
+
+# Retrieve data for all states
+all_states_data <- do.call(rbind, mapply(fetch_bls_data, names(state_series), state_series, SIMPLIFY = FALSE))
+
+# Print results
+print(all_states_data)
+
+
+```
+
+
+```{r}
+write.csv(all_states_data, "all_states_data.csv", row.names = FALSE)
+
+```
+
+
+```{r}
+
+# Calculate yearly cumulative turnover
+yearly_turnover <- all_states_data %>%
+  group_by(state, year) %>%
+  summarise(yearly_turnover = 1 - prod(1 - (value / 100), na.rm = TRUE))
+```
+
+
+```{r}
+yearly_turnover_wide <- yearly_turnover %>%
+  pivot_wider(names_from = year, values_from = yearly_turnover)
+
+write.csv(yearly_turnover_wide, "yearly_turnover.csv", row.names = FALSE)
+
+
+```
+
+
+
